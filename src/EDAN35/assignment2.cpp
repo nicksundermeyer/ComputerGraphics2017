@@ -45,7 +45,7 @@ namespace constant
 
 	constexpr size_t lights_nb           = 4;
 	constexpr float  light_intensity     = 720000.0f;
-	constexpr float  light_angle_falloff = glm::radians(37.0f);
+	constexpr float  light_angle_falloff = 0.8f;
 	constexpr float  light_cutoff        = 0.05f;
 }
 
@@ -116,6 +116,7 @@ edan35::Assignment2::run()
 	                   static_cast<float>(window_size.x) / static_cast<float>(window_size.y),
 	                   1.0f, 10000.0f);
 	mCamera.mWorld.SetTranslate(glm::vec3(0.0f, 100.0f, 180.0f));
+	mCamera.mWorld.LookAt(glm::vec3(0.0f, 0.0f, 0.0f));
 	mCamera.mMouseSensitivity = 0.003f;
 	mCamera.mMovementSpeed = 0.25f;
 	window->SetCamera(&mCamera);
@@ -207,10 +208,8 @@ edan35::Assignment2::run()
 	//
 	std::array<TRSTransform<float, glm::defaultp>, constant::lights_nb> lightTransforms;
 	std::array<glm::vec3, constant::lights_nb> lightColors;
-	int lights_nb = static_cast<int>(constant::lights_nb);
-	bool are_lights_paused = false;
 
-	for (size_t i = 0; i < static_cast<size_t>(lights_nb); ++i) {
+	for (size_t i = 0; i < constant::lights_nb; ++i) {
 		lightTransforms[i].SetTranslate(glm::vec3(0.0f, 125.0f, 0.0f));
 		lightColors[i] = glm::vec3(0.5f + 0.5f * (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)),
 		                           0.5f + 0.5f * (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)),
@@ -248,8 +247,7 @@ edan35::Assignment2::run()
 			fpsSamples = 0;
 		}
 		fpsSamples++;
-		if (!are_lights_paused)
-			seconds_nb += static_cast<float>(ddeltatime / 1000.0);
+		seconds_nb += static_cast<float>(ddeltatime / 1000.0);
 
 		auto& io = ImGui::GetIO();
 		inputHandler->SetUICapture(io.WantCaptureMouse, io.WantCaptureMouse);
@@ -296,7 +294,7 @@ edan35::Assignment2::run()
 		glDrawBuffers(2, light_draw_buffers);
 		glViewport(0, 0, window_size.x, window_size.y);
 		// XXX: Is any clearing needed?
-		for (size_t i = 0; i < static_cast<size_t>(lights_nb); ++i) {
+		for (size_t i = 0; i < constant::lights_nb; ++i) {
 			auto& lightTransform = lightTransforms[i];
 			lightTransform.SetRotate(seconds_nb * 0.1f + i * 1.57f, glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -398,7 +396,7 @@ edan35::Assignment2::run()
 		// Pass 4: Draw wireframe cones on top of the final image for debugging purposes
 		//
 //		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-//		for (size_t i = 0; i < lights_nb; ++i) {
+//		for (size_t i = 0; i < constant::lights_nb; ++i) {
 //			cone.render(mCamera.GetWorldToClipMatrix(),
 //			            lightTransforms[i].GetMatrix() * lightOffsetTransform.GetMatrix() * coneScaleTransform.GetMatrix(),
 //			            fill_shadowmap_shader, set_uniforms);
@@ -427,13 +425,6 @@ edan35::Assignment2::run()
 		bool opened = ImGui::Begin("Render Time", nullptr, ImVec2(120, 50), -1.0f, 0);
 		if (opened)
 			ImGui::Text("%.3f ms", ddeltatime);
-		ImGui::End();
-
-		opened = ImGui::Begin("Scene Controls", nullptr, ImVec2(120, 50), -1.0f, 0);
-		if (opened) {
-			ImGui::Checkbox("Pause lights", &are_lights_paused);
-			ImGui::SliderInt("Number of lights", &lights_nb, 1, static_cast<int>(constant::lights_nb));
-		}
 		ImGui::End();
 
 		ImGui::Render();

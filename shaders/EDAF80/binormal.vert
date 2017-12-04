@@ -10,7 +10,6 @@ out VS_OUT {
 	vec3 binormal;
 } vs_out;
 
-
 void main()
 {
 	vs_out.binormal = binormal;

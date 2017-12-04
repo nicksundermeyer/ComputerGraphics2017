@@ -6,15 +6,17 @@
 #include "external/glad/glad.h"
 #include "core/Bonobo.h"
 #include "core/FPSCamera.h"
+#include "core/helpers.hpp"
 #include "core/InputHandler.h"
 #include "core/Log.h"
 #include "core/LogView.h"
 #include "core/Misc.h"
-#include "core/node.hpp"
 #include "core/utils.h"
 #include "core/Window.h"
 #include <imgui.h>
 #include "external/imgui_impl_glfw_gl3.h"
+#include "core/node.cpp"
+#include "core/node.hpp"
 
 #include "external/glad/glad.h"
 #include <GLFW/glfw3.h>
@@ -64,12 +66,15 @@ edaf80::Assignment3::~Assignment3()
 void
 edaf80::Assignment3::run()
 {
-	// Load the sphere geometry
-	auto circle_ring_shape = parametric_shapes::createCircleRing(4u, 60u, 1.0f, 2.0f);
-	if (circle_ring_shape.vao == 0u) {
-		LogError("Failed to retrieve the circle ring mesh");
-		return;
-	}
+    // load sphere geometry
+    auto const sphere = parametric_shapes::createSphere(40u, 40u, 1.0f);
+    if (sphere.vao == 0u) {
+        LogError("Failed to retrieve the sphere mesh");
+        return;
+    }
+    
+    // load sky geometry
+    auto const sky = parametric_shapes::createSphere(40u, 40u, 100.0f);
 
 	// Set up the camera
 	FPSCameraf mCamera(bonobo::pi / 4.0f,
@@ -81,12 +86,42 @@ edaf80::Assignment3::run()
 	window->SetCamera(&mCamera);
 
 	// Create the shader programs
-	auto fallback_shader = bonobo::createProgram("fallback.vert", "fallback.frag");
-	if (fallback_shader == 0u) {
-		LogError("Failed to load fallback shader");
-		return;
-	}
-	GLuint diffuse_shader = 0u, normal_shader = 0u, texcoord_shader = 0u;
+    auto fallback_shader = bonobo::createProgram("fallback.vert", "fallback.frag");
+    
+    if (fallback_shader == 0u) {
+        LogError("Failed to load fallback shader");
+        return;
+    }
+    
+    auto phong_shader = bonobo::createProgram("phong.vert", "phong.frag");
+    
+    if (phong_shader == 0u) {
+        LogError("Failed to load phong shader");
+        return;
+    }
+    
+    auto skybox_shader = bonobo::createProgram("skybox.vert", "skybox.frag");
+    
+    if (skybox_shader == 0u) {
+        LogError("Failed to load cube shader");
+        return;
+    }
+    
+    auto reflection_shader = bonobo::createProgram("reflection.vert", "reflection.frag");
+    
+    if (reflection_shader == 0u) {
+        LogError("Failed to load reflection shader");
+        return;
+    }
+    
+    auto bumpmap_shader = bonobo::createProgram("bumpmap.vert", "bumpmap.frag");
+    
+    if (bumpmap_shader == 0u) {
+        LogError("Failed to load bumpmap shader");
+        return;
+    }
+    
+    GLuint diffuse_shader = 0u, normal_shader = 0u, texcoord_shader = 0u;
 	auto const reload_shaders = [&diffuse_shader,&normal_shader,&texcoord_shader](){
 		if (diffuse_shader != 0u)
 			glDeleteProgram(diffuse_shader);
@@ -109,16 +144,17 @@ edaf80::Assignment3::run()
 	reload_shaders();
 
 	auto light_position = glm::vec3(-2.0f, 4.0f, 2.0f);
-	auto const set_uniforms = [&light_position](GLuint program){
-		glUniform3fv(glGetUniformLocation(program, "light_position"), 1, glm::value_ptr(light_position));
-	};
 
 	auto camera_position = mCamera.mWorld.GetTranslation();
-	auto ambient = glm::vec3(0.2f, 0.2f, 0.2f);
+	auto ambient = glm::vec3(0.1f, 0.1f, 0.1f);
 	auto diffuse = glm::vec3(0.7f, 0.2f, 0.4f);
 	auto specular = glm::vec3(1.0f, 1.0f, 1.0f);
 	auto shininess = 1.0f;
-	auto const phong_set_uniforms = [&light_position,&camera_position,&ambient,&diffuse,&specular,&shininess](GLuint program){
+    auto cubeTexture = bonobo::loadTextureCubeMap("/cloudyhills/posx.png", "/cloudyhills/negx.png", "/cloudyhills/posy.png", "/cloudyhills/negy.png", "/cloudyhills/posz.png", "/cloudyhills/negz.png" );
+    auto bumpDiffuse = bonobo::loadTexture2D("fieldstone_diffuse.png");
+    auto bumpTexture = bonobo::loadTexture2D("fieldstone_bump.png");
+    
+	auto const set_uniforms = [&light_position,&camera_position,&ambient,&diffuse,&specular,&shininess](GLuint program){
 		glUniform3fv(glGetUniformLocation(program, "light_position"), 1, glm::value_ptr(light_position));
 		glUniform3fv(glGetUniformLocation(program, "camera_position"), 1, glm::value_ptr(camera_position));
 		glUniform3fv(glGetUniformLocation(program, "ambient"), 1, glm::value_ptr(ambient));
@@ -129,17 +165,21 @@ edaf80::Assignment3::run()
 
 	auto polygon_mode = polygon_mode_t::fill;
 
-	auto circle_ring = Node();
-	circle_ring.set_geometry(circle_ring_shape);
-	circle_ring.set_program(fallback_shader, set_uniforms);
+	auto testShape = Node();
+	testShape.set_geometry(sphere);
+    testShape.set_program(reflection_shader, set_uniforms);
+    
+    auto skyBox = Node();
+    skyBox.set_geometry(sky);
+    skyBox.set_program(skybox_shader, set_uniforms);
+    skyBox.add_texture("diffuse_texture", cubeTexture, GL_TEXTURE_CUBE_MAP);
 
 	glEnable(GL_DEPTH_TEST);
 
 	// Enable face culling to improve performance:
-	//glEnable(GL_CULL_FACE);
-	//glCullFace(GL_FRONT);
-	//glCullFace(GL_BACK);
-
+//    glEnable(GL_CULL_FACE);
+//    glCullFace(GL_FRONT);
+//    glCullFace(GL_BACK);
 
 	f64 ddeltatime;
 	size_t fpsSamples = 0;
@@ -165,17 +205,28 @@ edaf80::Assignment3::run()
 		ImGui_ImplGlfwGL3_NewFrame();
 
 		if (inputHandler->GetKeycodeState(GLFW_KEY_1) & JUST_PRESSED) {
-			circle_ring.set_program(fallback_shader, set_uniforms);
+			testShape.set_program(fallback_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_2) & JUST_PRESSED) {
-			circle_ring.set_program(diffuse_shader, set_uniforms);
+			testShape.set_program(diffuse_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_3) & JUST_PRESSED) {
-			circle_ring.set_program(normal_shader, set_uniforms);
+			testShape.set_program(normal_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_4) & JUST_PRESSED) {
-			circle_ring.set_program(texcoord_shader, set_uniforms);
+			testShape.set_program(texcoord_shader, set_uniforms);
 		}
+        if (inputHandler->GetKeycodeState(GLFW_KEY_5) & JUST_PRESSED) {
+            testShape.set_program(phong_shader, set_uniforms);
+        }
+        if (inputHandler->GetKeycodeState(GLFW_KEY_6) & JUST_PRESSED) {
+            testShape.set_program(reflection_shader, set_uniforms);
+        }
+        if (inputHandler->GetKeycodeState(GLFW_KEY_7) & JUST_PRESSED) {
+            testShape.set_program(bumpmap_shader, set_uniforms);
+            testShape.add_texture("diffuse_texture", bumpDiffuse, GL_TEXTURE_2D);
+            testShape.add_texture("bump_texture", bumpTexture, GL_TEXTURE_2D);
+        }
 		if (inputHandler->GetKeycodeState(GLFW_KEY_Z) & JUST_PRESSED) {
 			polygon_mode = get_next_mode(polygon_mode);
 		}
@@ -202,7 +253,8 @@ edaf80::Assignment3::run()
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-		circle_ring.render(mCamera.GetWorldToClipMatrix(), circle_ring.get_transform());
+        testShape.render(mCamera.GetWorldToClipMatrix(), testShape.get_transform());
+        skyBox.render(mCamera.GetWorldToClipMatrix(), testShape.get_transform());
 
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -237,6 +289,8 @@ edaf80::Assignment3::run()
 	diffuse_shader = 0u;
 	glDeleteProgram(fallback_shader);
 	diffuse_shader = 0u;
+    glDeleteProgram(phong_shader);
+    phong_shader = 0u;
 }
 
 int main()

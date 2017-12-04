@@ -83,21 +83,27 @@ edaf80::Assignment1::run()
 	// Load the sun's texture
 	auto sun_texture = bonobo::loadTexture2D("sunmap.png");
 
+    // creating sun node, setting texture and geometry
 	auto sun = Node();
 	sun.set_geometry(sphere);
 	sun.set_program(shader, [](GLuint /*program*/){});
-	//
-	// Todo: Attach a texture to the sun
-	//
+    sun.add_texture("diffuse_texture", sun_texture, GL_TEXTURE_2D);
 
 	auto world = Node();
 	world.add_child(&sun);
+    
+    auto earthOrbit = Node();
+    world.add_child(&earthOrbit);
 
-
-	//
-	// Todo: Create an Earth node
-	//
-
+	// creating earth node, loading texture and geometry
+    auto earth_texture = bonobo::loadTexture2D("earth_diffuse.png");
+    
+    auto earth = Node();
+    earth.set_geometry(sphere);
+    earth.set_program(shader, [](GLuint /*program*/){});
+    earth.add_texture("diffuse_texture", earth_texture, GL_TEXTURE_2D);
+    
+    earthOrbit.add_child(&earth);
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -125,11 +131,14 @@ edaf80::Assignment1::run()
 		ImGui_ImplGlfwGL3_NewFrame();
 
 
-		//
-		// How-To: Translate the sun
-		//
-		sun.set_translation(glm::vec3(std::sin(nowTime), 0.0f, 0.0f));
-
+		// rotating and translating sun
+        earthOrbit.set_rotation_y(-nowTime*2);
+        sun.set_rotation_y(nowTime);
+        
+        // rotating and translating earth
+        earth.set_translation(glm::vec3(2.5f, 0.0f, 0.0f));
+        earth.set_scaling(glm::vec3(0.4f, 0.4f, 0.4f));
+        earth.set_rotation_y(nowTime);
 
 		auto const window_size = window->GetDimensions();
 		glViewport(0, 0, window_size.x, window_size.y);
@@ -154,10 +163,11 @@ edaf80::Assignment1::run()
 			//
 			// Todo: Compute the current node's world matrix
 			//
-			auto const current_node_world_matrix = current_node_matrix;
+			auto const current_node_world_matrix = parent_matrix*current_node_matrix;
 			current_node->render(mCamera.GetWorldToClipMatrix(), current_node_world_matrix);
 
 			for (int i = static_cast<int>(current_node->get_children_nb()) - 1; i >= 0; --i) {
+                std::cout << i << std::endl;
 				node_stack.push(current_node->get_child(static_cast<size_t>(i)));
 				matrix_stack.push(current_node_world_matrix);
 			}

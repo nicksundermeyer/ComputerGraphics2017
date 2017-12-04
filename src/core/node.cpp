@@ -142,7 +142,7 @@ Node::scale(glm::vec3 const& s)
 {
 	_scaling *= s;
 }
-
+ 
 glm::mat4x4
 Node::get_transform() const
 {
@@ -154,5 +154,5 @@ Node::get_transform() const
 	auto const rotating = rotation_z * rotation_y * rotation_x;
 
 	// Todo: Compute the correct transform matrix
-	return translating;
+	return translating*scaling*rotating;
 }

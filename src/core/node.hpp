@@ -17,6 +17,8 @@ namespace bonobo
 class Node
 {
 public:
+    bool visible;
+    
 	//! \brief Default constructor.
 	Node();
 

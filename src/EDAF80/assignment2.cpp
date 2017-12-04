@@ -64,8 +64,11 @@ edaf80::Assignment2::~Assignment2()
 void
 edaf80::Assignment2::run()
 {
+    auto move_bool = true;
+    
 	// Load the sphere geometry
 	auto const shape = parametric_shapes::createCircleRing(4u, 60u, 1.0f, 2.0f);
+    auto const sphere = parametric_shapes::createSphere(40u, 40u, 1.0f);
 	if (shape.vao == 0u)
 		return;
 
@@ -104,6 +107,15 @@ edaf80::Assignment2::run()
 	auto const set_uniforms = [&light_position](GLuint program){
 		glUniform3fv(glGetUniformLocation(program, "light_position"), 1, glm::value_ptr(light_position));
 	};
+    
+    // set up control points
+    auto size = 5;
+    auto controlPoints  = std::vector<glm::vec3>(5);
+    
+    for(int i=0; i<controlPoints.size(); i++)
+    {
+        controlPoints[i] = glm::vec3(rand()%size, rand()%size, rand()%size);
+    }
 
 	// Set the default tensions value; it can always be changed at runtime
 	// through the "Scene Controls" window.
@@ -112,29 +124,38 @@ edaf80::Assignment2::run()
 	// Set whether the default interpolation algorithm should be the linear one;
 	// it can always be changed at runtime through the "Scene Controls" window.
 	bool use_linear = true;
+    
+    bool second_sphere = false;
 
 	auto circle_rings = Node();
 	circle_rings.set_geometry(shape);
 	circle_rings.set_program(fallback_shader, set_uniforms);
-
-
-	//! \todo Create a tesselated sphere and a tesselated torus
-
+    
+    auto sphereTest = Node();
+    sphereTest.set_geometry(sphere);
+    sphereTest.set_program(fallback_shader, set_uniforms);
+    
+    auto sphere2 = Node();
+    sphere2.set_geometry(sphere);
+    sphere2.set_program(fallback_shader, set_uniforms);
 
 	auto polygon_mode = polygon_mode_t::fill;
 
 	glEnable(GL_DEPTH_TEST);
 
 	// Enable face culling to improve performance
-	//glEnable(GL_CULL_FACE);
-	//glCullFace(GL_FRONT);
-	//glCullFace(GL_BACK);
-
+//	glEnable(GL_CULL_FACE);
+//	glCullFace(GL_FRONT);
+//	glCullFace(GL_BACK);
 
 	f64 ddeltatime;
 	size_t fpsSamples = 0;
 	double nowTime, lastTime = GetTimeSeconds();
 	double fpsNextTick = lastTime + 1.0;
+    
+    int i=1, j=2, k=3, l=0;
+    int tempTime=0;
+    glm::vec3 currentLocation, currentLocation2;
 
 	while (!glfwWindowShouldClose(window->GetGLFW_Window())) {
 		nowTime = GetTimeSeconds();
@@ -157,15 +178,19 @@ edaf80::Assignment2::run()
 
 		if (inputHandler->GetKeycodeState(GLFW_KEY_1) & JUST_PRESSED) {
 			circle_rings.set_program(fallback_shader, set_uniforms);
+            sphereTest.set_program(fallback_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_2) & JUST_PRESSED) {
 			circle_rings.set_program(diffuse_shader, set_uniforms);
+            sphereTest.set_program(diffuse_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_3) & JUST_PRESSED) {
 			circle_rings.set_program(normal_shader, set_uniforms);
+            sphereTest.set_program(normal_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_4) & JUST_PRESSED) {
 			circle_rings.set_program(texcoord_shader, set_uniforms);
+            sphereTest.set_program(texcoord_shader, set_uniforms);
 		}
 		if (inputHandler->GetKeycodeState(GLFW_KEY_Z) & JUST_PRESSED) {
 			polygon_mode = get_next_mode(polygon_mode);
@@ -182,12 +207,56 @@ edaf80::Assignment2::run()
 				break;
 		}
 
-		circle_rings.rotate_y(0.01f);
-
-
 		//! \todo Interpolate the movement of a shape between various
 		//!        control points
-
+        
+        
+        if (j > controlPoints.size() - 1)
+        {
+            j = 0;
+        }
+        
+        if (k > controlPoints.size() - 1)
+        {
+            k = 0;
+        }
+        
+        if (l > controlPoints.size() - 1)
+        {
+            l = 0;
+        }
+        
+        if(i > controlPoints.size()-1)
+        {
+            i = 0;
+        }
+        
+        if(use_linear)
+        {
+            currentLocation = interpolation::evalLERP(controlPoints[i], controlPoints[j], nowTime-tempTime);
+            currentLocation2 = interpolation::evalLERP(controlPoints[i], controlPoints[j], nowTime-tempTime);
+        }
+        else
+        {
+            currentLocation = interpolation::evalCatmullRom(controlPoints[l], controlPoints[i], controlPoints[j], controlPoints[k],catmull_rom_tension, nowTime - tempTime);
+            currentLocation2 = interpolation::evalCatmullRom(controlPoints[l], controlPoints[i], controlPoints[j], controlPoints[k],catmull_rom_tension/2, nowTime - tempTime);
+        }
+        
+        if(move_bool)
+        {
+            circle_rings.rotate_y(0.01f);
+            sphereTest.set_translation(currentLocation);
+            sphere2.set_translation(currentLocation2);
+        }
+        
+        if(nowTime-tempTime > 1)
+        {
+            tempTime = nowTime;
+            i++;
+            j++;
+            k++;
+            l++;
+        }
 
 		auto const window_size = window->GetDimensions();
 		glViewport(0, 0, window_size.x, window_size.y);
@@ -196,11 +265,19 @@ edaf80::Assignment2::run()
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
 		circle_rings.render(mCamera.GetWorldToClipMatrix(), circle_rings.get_transform());
+        sphereTest.render(mCamera.GetWorldToClipMatrix(), sphereTest.get_transform());
+        
+        if(second_sphere)
+        {
+            sphere2.render(mCamera.GetWorldToClipMatrix(), sphere2.get_transform());
+        }
 
 		bool const opened = ImGui::Begin("Scene Controls", nullptr, ImVec2(300, 100), -1.0f, 0);
 		if (opened) {
 			ImGui::SliderFloat("Catmull-Rom tension", &catmull_rom_tension, 0.0f, 1.0f);
 			ImGui::Checkbox("Use linear interpolation", &use_linear);
+            ImGui::Checkbox("Second sphere at half tension", &second_sphere);
+            ImGui::Checkbox("Move", &move_bool);
 		}
 		ImGui::End();
 
