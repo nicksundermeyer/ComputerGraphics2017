@@ -1,3 +1,12 @@
+This repo contains projects done for the EDAF80 Computer Graphics course at Lund University in Sweden, learning to use OpenGL. The work that I have done can be found in src/EDAF80, with each assignment as a separate cpp file. The assignments are as follows (press numbers 1-6 to cycle between visual modes, z to switch to and from wireframe):  
+* Assignment 1: first steps learning to render and texture objects in 3D space, as well as create object hierarchies
+* Assignment 2: learning to move object using both linear and Catmull-Rom interpolation
+* Assignment 3: cube mapping to create a sky box, as well as learning to apply phong shading and reflection mapping to objects
+* Assignment 4: dynamic water shader written in GLSL using vertex transformations, reflection, refraction, and bump mapping
+* Assignment 5: basic game to work with dynamic interaction as well as spawning objects and collision detection
+
+Information about how to build the project can be found below.
+
 CG_Labs contains the source code for the various Computer Graphics courses
 taught at `Lund University`_ (EDAF80_ and EDAN35_). All assignments of EDAF80
 are available, as well as the second assignment of EDAN35.
